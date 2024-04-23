@@ -32,7 +32,7 @@ It's based on previous work:
 
 We'll use data from the Propensity to Cycle Tool and the [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as an example.
 
-# Example datasets
+# Example dataset
 
 Datasets were take from a few case study areas.
 
@@ -42,7 +42,7 @@ library(tidyverse)
 library(patchwork)
 ```
 
-## Thornbury, West Yorkshire
+We'll focus on Thornbury, West Yorkshire for now.
 
 ```{r}
 #| include: false
@@ -123,6 +123,8 @@ ggplot() +
     scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
     theme_void()
 ```
+
+# Subsetting the target 'x' network (optional)
 
 A first step, to speed-up the join and reduce the size of the data, can be to keep only the records in the target 'x' dataset that are relevant.
 After this filtering step, the datasets look like this:
@@ -207,3 +209,108 @@ total_flow_y = sum(net_y$flow * sf::st_length(net_y)) |>
 ```
 
 Unfortunately the results are way out: the total flow in the joined network using this basic join approach is less than half (`r round(total_flow_simple_join / total_flow_y * 100)` %) the total flow in the original network.
+
+# The rnet_merge approach
+
+The `rnet_join` and `rnet_merge()` functions in {stplanr}were developed to address this issue.
+Code to undertake the join are shown below.
+
+```{r}
+#| label: rnet-merge
+#| echo: true
+rnet_joined_1 = stplanr::rnet_join(net_x_subset_20, net_y, dist = 15)
+rnet_joined_2 = stplanr::rnet_join(net_x_subset_20, net_y, dist = 15, segment_length = 10)
+```
+
+The results are based on 'flat headed' buffers around the x geometry, with results kept in this form in the output, as shown in the table and figure below.
+
+```{r}
+rnet_joined_2 |>
+  sf::st_drop_geometry() |>
+  slice(c(1, 2, 9)) |>
+  knitr::kable()
+```
+
+```{r}
+g1 = rnet_joined_1 |>
+    ggplot() +
+    geom_sf(aes(fill = flow), colour = NA, alpha = 0.2) +
+    scale_fill_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+g2 = rnet_joined_2 |>
+    ggplot() +
+    geom_sf(aes(fill = flow), colour = NA, alpha = 0.2) +
+    scale_fill_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+
+g1 + g2
+```
+
+The plot shows big differences in the results of the `rnet_join()` function depending on the `segment_length` parameter, which splits `y` links into segments of the specified length, before doing the join to the buffer.
+
+Let's aggregate the results and re-join to the geometries of `x`, this time using the lengths of `x` and `y` to ensure more important values are given more weight, and see if the results are more accurate.
+
+```{r}
+rnet_joined_1_values = rnet_joined_1 |>
+  sf::st_drop_geometry() |>
+  group_by(id) |>
+  mutate(flow_distance = flow * length_y) |>
+  summarise(flow_distance = sum(flow_distance, na.rm = TRUE))
+rnet_joined_2_values = rnet_joined_2 |>
+    sf::st_drop_geometry() |>
+    group_by(id) |>
+    mutate(flow_distance = flow * length_y) |>
+    summarise(flow_distance = sum(flow_distance, na.rm = TRUE))
+rnet_joined_1 = left_join(net_x_subset_20, rnet_joined_1_values, by = "id")
+
+rnet_joined_2 = left_join(net_x_subset_20, 
+rnet_joined_2_values, by = "id")
+
+# re-caluclate total flow
+rnet_joined_1 = rnet_joined_1 |>
+  mutate(flow = flow_distance / length) 
+rnet_joined_2 = rnet_joined_2 |>
+  mutate(flow = flow_distance / length)
+
+total_flow_rnet_join_1 = sum(rnet_joined_1$flow * sf::st_length(rnet_joined_1)) |>
+  as.numeric()
+total_flow_rnet_join_2 = sum(rnet_joined_2$flow * sf::st_length(rnet_joined_2)) |>
+    as.numeric()
+```
+
+The total flow on the networks are `r round(total_flow_rnet_join_1 / total_flow_y * 100)` % and `r round(total_flow_rnet_join_2 / total_flow_y * 100)` % of the total flow in the original network, respectively.
+
+<!-- The results are shown below: -->
+
+```{r}
+g1 = rnet_joined_1 |>
+    ggplot() +
+    geom_sf(aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+g2 = rnet_joined_2 |>
+    ggplot() +
+    geom_sf(aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+g1 + g2
+```
+
+
+```{r}
+#| include: false
+# This shows the values are quite different
+waldo::compare(rnet_joined_1$geometry, rnet_joined_2$geometry)
+waldo::compare(rnet_joined_1$id, rnet_joined_2$id) # big differences
+waldo::compare(rnet_joined_1$flow, rnet_joined_2$flow)
+```
+
+The results above show that the `rnet_join()` function works well, capturing the majority of the flow in the `y` network, with the `segment_length` parameter allowing the user to control the level of detail in the output.
+Users have full control over the aggregating functions used, which can be useful for different use cases, e.g. to classify the highway type, as shown in the code snippet below.
+
+```{r}
+#| label: rnet-join-classify
+#| echo: true
+
+
+```
