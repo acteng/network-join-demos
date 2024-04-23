@@ -35,11 +35,10 @@ It’s based on previous work:
 - The rnetmatch approach, which has been implemented in Rust with a
   nascent R wrapper (there are plans for a Python wrapper)
 
-- See text for paper at
-  <https://github.com/nptscot/rnetmatch/blob/main/paper.qmd>
-
-- See description of the algorithm implemented in Rust here:
-  <https://github.com/nptscot/rnetmatch/blob/main/rust/README.md>
+  - See text for paper at
+    <https://github.com/nptscot/rnetmatch/blob/main/paper.qmd>
+  - See description of the algorithm implemented in Rust here:
+    <https://github.com/nptscot/rnetmatch/blob/main/rust/README.md>
 
 We’ll use data from the Propensity to Cycle Tool and the
 [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as

@@ -29,8 +29,8 @@ It's based on previous work:
 -   An approach in JavaScript at <https://github.com/acteng/amat/tree/main/pct_lcwip_join>, described at <https://github.com/acteng/amat/blob/main/js/model.md#pct-join>
 
 -   The rnetmatch approach, which has been implemented in Rust with a nascent R wrapper (there are plans for a Python wrapper)
-  - See text for paper at <https://github.com/nptscot/rnetmatch/blob/main/paper.qmd>
-  - See description of the algorithm implemented in Rust here: <https://github.com/nptscot/rnetmatch/blob/main/rust/README.md>
+    - See text for paper at <https://github.com/nptscot/rnetmatch/blob/main/paper.qmd>
+    - See description of the algorithm implemented in Rust here: <https://github.com/nptscot/rnetmatch/blob/main/rust/README.md>
 
 We'll use data from the Propensity to Cycle Tool and the [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as an example.
 
@@ -66,7 +66,7 @@ if (!file.exists("data/open_roads_thornbury.gpkg")) {
         unzip(f)
     } 
     sf::st_layers("Data/oproad_gb.gpkg")
-    open_roads_national = sf::st_read("Data/oproad_gb.gpkg", layer = "road_link")
+    open_roads_national = sf::read_sf("Data/oproad_gb.gpkg", layer = "road_link")
     open_roads_thornbury = open_roads_national[study_area_1km_projected, , op = sf::st_within]
     names(open_roads_thornbury)
 #  [1] "id"                         "fictitious"                
@@ -107,8 +107,8 @@ if (!file.exists("data/pct_thornbury.gpkg")) {
 
 ```{r}
 #| label: load-data-thornbury
-net_x = sf::st_read("data/open_roads_thornbury.gpkg")
-net_y = sf::st_read("data/pct_thornbury.gpkg")
+net_x = sf::read_sf("data/open_roads_thornbury.gpkg")
+net_y = sf::read_sf("data/pct_thornbury.gpkg")
 # net_combined = bind_rows(
 #     net_x |> transmute(source = "OpenRoads"),
 #     net_y |> transmute(source = "PCT")
