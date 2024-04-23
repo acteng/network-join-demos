@@ -28,12 +28,18 @@ It’s based on previous work:
   [parenx](https://github.com/anisotropi4/parenx) Python package
   available on pip): <https://nptscot.github.io/networkmerge/>
 
-- The rnetmatch approach, which has been implemented in Rust with a
-  nascent R wrapper (there are plans for a Python wrapper)
-
 - An approach in JavaScript at
   <https://github.com/acteng/amat/tree/main/pct_lcwip_join>, described
   at <https://github.com/acteng/amat/blob/main/js/model.md#pct-join>
+
+- The rnetmatch approach, which has been implemented in Rust with a
+  nascent R wrapper (there are plans for a Python wrapper)
+
+- See text for paper at
+  <https://github.com/nptscot/rnetmatch/blob/main/paper.qmd>
+
+- See description of the algorithm implemented in Rust here:
+  <https://github.com/nptscot/rnetmatch/blob/main/rust/README.md>
 
 We’ll use data from the Propensity to Cycle Tool and the
 [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as
@@ -141,3 +147,26 @@ capturing the majority of the flow in the `y` network, with the
 detail in the output. Users have full control over the aggregating
 functions used, which can be useful for different use cases, e.g. to
 classify the highway type, as shown in the code snippet below.
+
+``` r
+net_y$characters = sample(letters[1:3], nrow(net_y), replace = TRUE)
+rnet_joined = stplanr::rnet_join(net_x_subset_20, net_y, dist = 15, segment_length = 10)
+rnet_joined_values = rnet_joined |>
+  sf::st_drop_geometry() |>
+  group_by(id) |>
+  mutate(flow_distance = flow * length_y) |>
+  summarise(
+    flow_distance = sum(flow_distance, na.rm = TRUE),
+    categories = paste0(unique(characters), collapse = ",")
+    )
+rnet_joined_x = left_join(net_x_subset_20, rnet_joined_values, by = "id")
+# rnet_joined_x |>
+#   ggplot() +
+#   geom_sf(aes(fill = categories), colour = NA) +
+#   theme_void()
+rnet_joined_x |>
+  select(categories) |>
+  plot(lwd = 2)
+```
+
+![](README_files/figure-commonmark/rnet-join-classify-1.png)
