@@ -336,7 +336,7 @@ net_x = sf::read_sf("data/pct_thornbury.gpkg") |>
   transmute(id = 1:n())
 net_x = stplanr::rnet_subset(net_x, net_y, dist = 20)
 net_y_split = stplanr::line_segment(net_y, segment_length = 10, use_rsgeo = FALSE)
-rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0)
+rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0, dist = 15)
 rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
