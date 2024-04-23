@@ -50,24 +50,6 @@ Datasets were take from a few case study areas.
 
 We’ll focus on Thornbury, West Yorkshire for now.
 
-    Reading layer `open_roads_thornbury' from data source 
-      `/home/robin/github/acteng/network-join-demos/data/open_roads_thornbury.gpkg' 
-      using driver `GPKG'
-    Simple feature collection with 421 features and 20 fields
-    Geometry type: LINESTRING
-    Dimension:     XY
-    Bounding box:  xmin: 418537.8 ymin: 433158 xmax: 420517 ymax: 435028.6
-    Projected CRS: OSGB36 / British National Grid
-
-    Reading layer `pct_thornbury' from data source 
-      `/home/robin/github/acteng/network-join-demos/data/pct_thornbury.gpkg' 
-      using driver `GPKG'
-    Simple feature collection with 95 features and 1 field
-    Geometry type: LINESTRING
-    Dimension:     XY
-    Bounding box:  xmin: 418585.9 ymin: 433201.9 xmax: 420499.9 ymax: 434468.5
-    Projected CRS: OSGB36 / British National Grid
-
 ![](README_files/figure-commonmark/load-data-thornbury-1.png)
 
 # Subsetting the target ‘x’ network (optional)
@@ -116,11 +98,11 @@ The results are based on ‘flat headed’ buffers around the x geometry,
 with results kept in this form in the output, as shown in the table and
 figure below.
 
-|     | id                                   | flow | length_y |
-|:----|:-------------------------------------|-----:|---------:|
-| 1   | 0306E7A4-C705-4776-A357-CA58B64396FA |    0 | 9.832566 |
-| 1.1 | 0306E7A4-C705-4776-A357-CA58B64396FA |    0 | 9.832566 |
-| 2   | 030E661F-4DAE-470F-807C-52B69BE295B3 |    3 | 9.464192 |
+| id                                   | flow | length_y |
+|:-------------------------------------|-----:|---------:|
+| 0306E7A4-C705-4776-A357-CA58B64396FA |    0 | 9.832566 |
+| 0306E7A4-C705-4776-A357-CA58B64396FA |    0 | 9.832566 |
+| 030E661F-4DAE-470F-807C-52B69BE295B3 |    3 | 9.464192 |
 
 ![](README_files/figure-commonmark/unnamed-chunk-10-1.png)
 
@@ -145,27 +127,34 @@ capturing the majority of the flow in the `y` network, with the
 `segment_length` parameter allowing the user to control the level of
 detail in the output. Users have full control over the aggregating
 functions used, which can be useful for different use cases, e.g. to
-classify the highway type, as shown in the code snippet below.
+classify the highway type, as shown in the code snippet below, which
+demonstrates the function’s ability to work in either direction (x and y
+can be swapped).
 
 ``` r
-net_y$characters = sample(letters[1:3], nrow(net_y), replace = TRUE)
-rnet_joined = stplanr::rnet_join(net_x_subset_20, net_y, dist = 15, segment_length = 10)
+net_y = sf::read_sf("data/open_roads_thornbury.gpkg") |>
+  transmute(road_function = road_function)
+net_x = sf::read_sf("data/pct_thornbury.gpkg") |>
+  transmute(id = 1:n())
+net_x = stplanr::rnet_subset(net_x, net_y, dist = 20)
+net_y_split = stplanr::line_segment(net_y, segment_length = 10, use_rsgeo = FALSE)
+rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0)
 rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
-  mutate(flow_distance = flow * length_y) |>
   summarise(
-    flow_distance = sum(flow_distance, na.rm = TRUE),
-    categories = paste0(unique(characters), collapse = ",")
+    categories = paste0(unique(road_function), collapse = ",")
     )
-rnet_joined_x = left_join(net_x_subset_20, rnet_joined_values, by = "id")
+rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 # rnet_joined_x |>
 #   ggplot() +
 #   geom_sf(aes(fill = categories), colour = NA) +
 #   theme_void()
 rnet_joined_x |>
   select(categories) |>
-  plot(lwd = 2)
+  ggplot() +
+  geom_sf(aes(colour = categories)) +
+  theme_void()
 ```
 
 ![](README_files/figure-commonmark/rnet-join-classify-1.png)

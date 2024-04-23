@@ -308,27 +308,32 @@ waldo::compare(rnet_joined_1$flow, rnet_joined_2$flow)
 ```
 
 The results above show that the `rnet_join()` function works well, capturing the majority of the flow in the `y` network, with the `segment_length` parameter allowing the user to control the level of detail in the output.
-Users have full control over the aggregating functions used, which can be useful for different use cases, e.g. to classify the highway type, as shown in the code snippet below.
+Users have full control over the aggregating functions used, which can be useful for different use cases, e.g. to classify the highway type, as shown in the code snippet below, which demonstrates the function's ability to work in either direction (x and y can be swapped).
 
 ```{r}
 #| label: rnet-join-classify
 #| echo: true
-net_y$characters = sample(letters[1:3], nrow(net_y), replace = TRUE)
-rnet_joined = stplanr::rnet_join(net_x_subset_20, net_y, dist = 15, segment_length = 10)
+net_y = sf::read_sf("data/open_roads_thornbury.gpkg") |>
+  transmute(road_function = road_function)
+net_x = sf::read_sf("data/pct_thornbury.gpkg") |>
+  transmute(id = 1:n())
+net_x = stplanr::rnet_subset(net_x, net_y, dist = 20)
+net_y_split = stplanr::line_segment(net_y, segment_length = 10, use_rsgeo = FALSE)
+rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0)
 rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
-  mutate(flow_distance = flow * length_y) |>
   summarise(
-    flow_distance = sum(flow_distance, na.rm = TRUE),
-    categories = paste0(unique(characters), collapse = ",")
+    categories = paste0(unique(road_function), collapse = ",")
     )
-rnet_joined_x = left_join(net_x_subset_20, rnet_joined_values, by = "id")
+rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 # rnet_joined_x |>
 #   ggplot() +
 #   geom_sf(aes(fill = categories), colour = NA) +
 #   theme_void()
 rnet_joined_x |>
   select(categories) |>
-  plot(lwd = 2)
+  ggplot() +
+  geom_sf(aes(colour = categories)) +
+  theme_void()
 ```
