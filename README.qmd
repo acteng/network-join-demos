@@ -9,9 +9,12 @@ format: gfm
 Joining data is key to data science, allowing value to be added to disparate datasets by combining them.
 
 There are various types of join, including based on shared 'key' values and shared space for spatial joins.
-However, neither of these join types works for joining network data of the type shown below.
+However, neither of these join types works for joining network data of the type shown below, which represents 2 separate networks with different but related geometries (source: [ATIP browse tool](https://acteng.github.io/atip/browse.html?style=streets#13.32/53.79562/-1.6874)).
 
 ![](images/paste-1.png)
+
+Imagine you want to know what kind of cycle infrastructure is associated with each segment of the MRN.
+That's the kind of problem that network joins can tackle.
 
 This guide outlines the challenges of network joining and demonstrates implementation-agnostic solutions.
 
