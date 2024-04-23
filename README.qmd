@@ -311,6 +311,23 @@ The results above show that the `rnet_join()` function works well, capturing the
 Users have full control over the aggregating functions used, which can be useful for different use cases, e.g. to classify the highway type, as shown in the code snippet below, which demonstrates the function's ability to work in either direction (x and y can be swapped).
 
 ```{r}
+most_common_value = function(x) {
+  if (length(x) == 0) {
+    return(NA)
+  } else {
+    # Remove NA values if length X is greater than 1 and there are non NA values:
+    x = x[!is.na(x)]
+    res = names(sort(table(x), decreasing = TRUE)[1])
+    if (is.null(res)) {
+      return(NA)
+    } else {
+      return(res)
+    }
+  }
+}
+```
+
+```{r}
 #| label: rnet-join-classify
 #| echo: true
 net_y = sf::read_sf("data/open_roads_thornbury.gpkg") |>
@@ -324,7 +341,8 @@ rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
   summarise(
-    categories = paste0(unique(road_function), collapse = ",")
+    # Most frequent road function:
+    road_function = most_common_value(road_function)
     )
 rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 # rnet_joined_x |>
@@ -332,8 +350,8 @@ rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 #   geom_sf(aes(fill = categories), colour = NA) +
 #   theme_void()
 rnet_joined_x |>
-  select(categories) |>
+  select(road_function) |>
   ggplot() +
-  geom_sf(aes(colour = categories)) +
+  geom_sf(aes(colour = road_function)) +
   theme_void()
 ```

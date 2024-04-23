@@ -143,7 +143,8 @@ rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
   summarise(
-    categories = paste0(unique(road_function), collapse = ",")
+    # Most frequent road function:
+    road_function = most_common_value(road_function)
     )
 rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 # rnet_joined_x |>
@@ -151,9 +152,9 @@ rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
 #   geom_sf(aes(fill = categories), colour = NA) +
 #   theme_void()
 rnet_joined_x |>
-  select(categories) |>
+  select(road_function) |>
   ggplot() +
-  geom_sf(aes(colour = categories)) +
+  geom_sf(aes(colour = road_function)) +
   theme_void()
 ```
 
