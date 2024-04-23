@@ -2,6 +2,10 @@
 title: "Testing network joining functions"
 author: "Robin Lovelace"
 format: gfm
+execute: 
+  echo: false
+  message: false
+  warning: false
 ---
 
 # Introduction
@@ -28,13 +32,178 @@ It's based on previous work:
 
 We'll use data from the Propensity to Cycle Tool and the [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as an example.
 
+# Example datasets
+
+Datasets were take from a few case study areas.
+
 ```{r}
-if (!file.exists("open_roads_example.zip")) {
+#| include: false
+library(tidyverse)
+library(patchwork)
+```
+
+## Thornbury, West Yorkshire
+
+```{r}
+#| include: false
+study_area_name = "Thornbury West Yorkshire"
+study_area_zones = zonebuilder::zb_zone(study_area_name)
+mapview::mapview(study_area_zones)
+study_area_centroid = sf::st_centroid(study_area_zones[1, ])
+study_area_1km = sf::st_buffer(study_area_centroid, 1000)
+study_area_1km_projected = sf::st_transform(study_area_1km, 27700)
+```
+
+```{r}
+if (!file.exists("data/open_roads_thornbury.gpkg")) {
     message("You lack open roads data locally")
     u = "https://api.os.uk/downloads/v1/products/OpenRoads/downloads?area=GB&format=GeoPackage&redirect"
     f = "oproad_gpkg_gb.zip"
-    if (!file.exists(f)) download.file(u, f)
+    if (!file.exists(f)) {
+        download.file(u, f)
+        unzip(f)
+    } 
+    sf::st_layers("Data/oproad_gb.gpkg")
+    open_roads_national = sf::st_read("Data/oproad_gb.gpkg", layer = "road_link")
+    open_roads_thornbury = open_roads_national[study_area_1km_projected, , op = sf::st_within]
+    names(open_roads_thornbury)
+#  [1] "id"                         "fictitious"                
+#  [3] "road_classification"        "road_function"             
+#  [5] "form_of_way"                "road_classification_number"
+#  [7] "name_1"                     "name_1_lang"               
+#  [9] "name_2"                     "name_2_lang"               
+# [11] "road_structure"             "length"                    
+# [13] "length_uom"                 "loop"                      
+# [15] "primary_route"              "trunk_road"                
+# [17] "start_node"                 "end_node"                  
+# [19] "road_number_toid"           "road_name_toid"            
+# [21] "geometry"   
+    table(open_roads_thornbury$road_classification)
+    table(open_roads_thornbury$road_function)
+    table(open_roads_thornbury$form_of_way)
+    table(open_roads_thornbury$road_structure)
+    table(open_roads_thornbury$trunk_road)
+    plot(open_roads_thornbury$geom)
+    sf::st_write(open_roads_thornbury, "data/open_roads_thornbury.gpkg")
 }
 ```
 
-# Basical spatial join
+```{r}
+#| include: false
+#| label: pct-data
+if (!file.exists("data/pct_thornbury.gpkg")) {
+    message("You lack PCT data locally")
+    rnet_wyca = pct::get_pct_rnet("west-yorkshire")
+    rnet_wyca = rnet_wyca |>
+      transmute(flow = bicycle)
+    names(rnet_wyca)
+    rnet_wyca_projected = sf::st_transform(rnet_wyca, 27700)
+    pct_thornbury = rnet_wyca_projected[study_area_1km_projected, , op = sf::st_within]
+    sf::st_write(pct_thornbury, "data/pct_thornbury.gpkg", delete_dsn = TRUE)
+}
+```
+
+```{r}
+#| label: load-data-thornbury
+net_x = sf::st_read("data/open_roads_thornbury.gpkg")
+net_y = sf::st_read("data/pct_thornbury.gpkg")
+# net_combined = bind_rows(
+#     net_x |> transmute(source = "OpenRoads"),
+#     net_y |> transmute(source = "PCT")
+# )
+# net_combined |>
+#     ggplot() +
+#     geom_sf(aes(colour = source, size = source)) +
+#     scale_size_manual(values = c("OpenRoads" = 1, "PCT" = 2)) +
+#     theme_void()
+ggplot() +
+    geom_sf(data = net_x, colour = "grey", linewidth = 2) +
+    geom_sf(data = net_y, aes(colour = flow)) +
+    # Categorised flow with breaks at 0, 5, 10, 20:
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+```
+
+A first step, to speed-up the join and reduce the size of the data, can be to keep only the records in the target 'x' dataset that are relevant.
+After this filtering step, the datasets look like this:
+
+```{r}
+#| label: subset-data
+#| layout-ncol: 2
+# ?stplanr::rnet_subset
+net_x_subset = stplanr::rnet_subset(net_x, net_y, dist = 30, crop = FALSE)
+net_x_subset_10 = stplanr::rnet_subset(net_x, net_y, dist = 10, crop = FALSE)
+net_x_subset_20 = stplanr::rnet_subset(net_x, net_y, dist = 20, crop = FALSE)
+net_x_subset_cropped = stplanr::rnet_subset(net_x, net_y, dist = 30, crop = TRUE)
+g1 = net_x_subset |>
+    ggplot() +
+    geom_sf(colour = "grey", linewidth = 2) +
+    geom_sf(data = net_y, aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void() +
+    ggtitle("Subset without cropping (dist = 30)")    
+
+g2 = net_x_subset_10 |>
+    ggplot() +
+    geom_sf(colour = "grey", linewidth = 2) +
+    geom_sf(data = net_y, aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void() +
+    ggtitle("Subset without cropping (dist = 10)")
+
+g3 = net_x_subset_20 |>
+    ggplot() +
+    geom_sf(colour = "grey", linewidth = 2) +
+    geom_sf(data = net_y, aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void() +
+    ggtitle("Subset without cropping (dist = 20)")
+
+g4 = net_x_subset_cropped |>
+    ggplot() +
+    geom_sf(colour = "grey", linewidth = 2) +
+    geom_sf(data = net_y, aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void() +
+    ggtitle("Subset with cropping")
+
+(g1 | g2) / (g3 | g4)
+```
+
+Of the four options, the third (with a distance of 20) looks like the best compromise between omitting unwanted links while retaining the majority of the network.
+
+The most appropriate distance depends on your data and use case, it may be worth keeping more of the 'x' network than you need and using the join to filter out unwanted links (the subsetting stage is not essential).
+
+# Basic spatial join
+
+A simple approach to joining the two networks is with a simple spatial join, using one of the available 'binary predicates', such as `st_intersects`, `st_within` (relevant for buffers), `st_contains` or `st_touches`.
+
+The results when the `flow` attributes are summed are shown below:
+
+```{r}
+#| label: spatial-join
+net_join = sf::st_join(net_x_subset_20, net_y, join = sf::st_intersects)
+# nrow(net_join) / nrow(net_x_subset_20)
+net_join_values = net_join |>
+  sf::st_drop_geometry() |>
+  group_by(id) |>
+  summarise(flow = sum(flow, na.rm = TRUE))
+net_x_joined = left_join(net_x_subset_20, net_join_values, by = "id")
+g1 = net_y |>
+    ggplot() +
+    geom_sf(aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+g2 = net_x_joined |>
+    ggplot() +
+    geom_sf(aes(colour = flow)) +
+    scale_colour_viridis_c(breaks = c(0, 5, 10, 20)) +
+    theme_void()
+g1 + g2
+total_flow_simple_join = sum(net_x_joined$flow * sf::st_length(net_x_joined)) |>
+  as.numeric()
+total_flow_y = sum(net_y$flow * sf::st_length(net_y)) |>
+  as.numeric()
+```
+
+Unfortunately the results are way out: the total flow in the joined network using this basic join approach is less than half (`r round(total_flow_simple_join / total_flow_y * 100)` %) the total flow in the original network.

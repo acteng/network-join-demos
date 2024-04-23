@@ -39,15 +39,58 @@ We’ll use data from the Propensity to Cycle Tool and the
 [OpenRoads](https://osdatahub.os.uk/downloads/open/OpenRoads) dataset as
 an example.
 
-``` r
-if (!file.exists("open_roads_example.zip")) {
-    message("You lack open roads data locally")
-    u = "https://api.os.uk/downloads/v1/products/OpenRoads/downloads?area=GB&format=GeoPackage&redirect"
-    f = "oproad_gpkg_gb.zip"
-    if (!file.exists(f)) download.file(u, f)
-}
-```
+# Example datasets
 
-    You lack open roads data locally
+Datasets were take from a few case study areas.
 
-# Basical spatial join
+## Thornbury, West Yorkshire
+
+    Reading layer `open_roads_thornbury' from data source 
+      `/home/robin/github/acteng/network-join-demos/data/open_roads_thornbury.gpkg' 
+      using driver `GPKG'
+    Simple feature collection with 421 features and 20 fields
+    Geometry type: LINESTRING
+    Dimension:     XY
+    Bounding box:  xmin: 418537.8 ymin: 433158 xmax: 420517 ymax: 435028.6
+    Projected CRS: OSGB36 / British National Grid
+
+    Reading layer `pct_thornbury' from data source 
+      `/home/robin/github/acteng/network-join-demos/data/pct_thornbury.gpkg' 
+      using driver `GPKG'
+    Simple feature collection with 95 features and 1 field
+    Geometry type: LINESTRING
+    Dimension:     XY
+    Bounding box:  xmin: 418585.9 ymin: 433201.9 xmax: 420499.9 ymax: 434468.5
+    Projected CRS: OSGB36 / British National Grid
+
+![](README_files/figure-commonmark/load-data-thornbury-1.png)
+
+A first step, to speed-up the join and reduce the size of the data, can
+be to keep only the records in the target ‘x’ dataset that are relevant.
+After this filtering step, the datasets look like this:
+
+![](README_files/figure-commonmark/subset-data-1.png)
+
+Of the four options, the third (with a distance of 20) looks like the
+best compromise between omitting unwanted links while retaining the
+majority of the network.
+
+The most appropriate distance depends on your data and use case, it may
+be worth keeping more of the ‘x’ network than you need and using the
+join to filter out unwanted links (the subsetting stage is not
+essential).
+
+# Basic spatial join
+
+A simple approach to joining the two networks is with a simple spatial
+join, using one of the available ‘binary predicates’, such as
+`st_intersects`, `st_within` (relevant for buffers), `st_contains` or
+`st_touches`.
+
+The results when the `flow` attributes are summed are shown below:
+
+![](README_files/figure-commonmark/spatial-join-1.png)
+
+Unfortunately the results are way out: the total flow in the joined
+network using this basic join approach is less than half (48 %) the
+total flow in the original network.
