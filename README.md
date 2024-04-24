@@ -50,6 +50,23 @@ Datasets were take from a few case study areas.
 
 We’ll focus on Thornbury, West Yorkshire for now.
 
+The following commands will load the datar (available in the
+[data](data)) folder in the repo into R (the equivalent function in
+Python would be `geopandas.read_file`):
+
+``` r
+net_x = sf::read_sf("data/open_roads_thornbury.geojson")
+net_y = sf::read_sf("data/pct_thornbury.geojson")
+```
+
+For the purposes of this demo we’ll use projected data, although the
+functions should work with unprojected data too:
+
+``` r
+net_x = sf::st_transform(net_x, "EPSG:27700")
+net_y = sf::st_transform(net_y, "EPSG:27700")
+```
+
 ![](README_files/figure-commonmark/load-data-thornbury-1.png)
 
 # Subsetting the target ‘x’ network (optional)
@@ -104,7 +121,7 @@ figure below.
 | 0306E7A4-C705-4776-A357-CA58B64396FA |    0 | 9.832566 |
 | 030E661F-4DAE-470F-807C-52B69BE295B3 |    3 | 9.464192 |
 
-![](README_files/figure-commonmark/unnamed-chunk-10-1.png)
+![](README_files/figure-commonmark/unnamed-chunk-12-1.png)
 
 The plot shows big differences in the results of the `rnet_join()`
 function depending on the `segment_length` parameter, which splits `y`
@@ -126,7 +143,7 @@ accurate but more computationally intensive.
 
 <!-- The results are shown below: -->
 
-![](README_files/figure-commonmark/unnamed-chunk-12-1.png)
+![](README_files/figure-commonmark/unnamed-chunk-14-1.png)
 
 The results above show that the `rnet_join()` function works well,
 capturing the majority of the flow in the `y` network, with the

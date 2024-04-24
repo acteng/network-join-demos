@@ -58,7 +58,7 @@ study_area_1km_projected = sf::st_transform(study_area_1km, 27700)
 ```
 
 ```{r}
-if (!file.exists("data/open_roads_thornbury.gpkg")) {
+if (!file.exists("data/open_roads_thornbury.geojson")) {
     message("You lack open roads data locally")
     u = "https://api.os.uk/downloads/v1/products/OpenRoads/downloads?area=GB&format=GeoPackage&redirect"
     f = "oproad_gpkg_gb.zip"
@@ -88,13 +88,17 @@ if (!file.exists("data/open_roads_thornbury.gpkg")) {
     table(open_roads_thornbury$trunk_road)
     plot(open_roads_thornbury$geom)
     sf::st_write(open_roads_thornbury, "data/open_roads_thornbury.gpkg")
+    # Prepare to save as geojson
+    open_roads_thornbury |>
+      sf::st_transform(4326) |>
+      sf::write_sf("data/open_roads_thornbury.geojson")
 }
 ```
 
 ```{r}
 #| include: false
 #| label: pct-data
-if (!file.exists("data/pct_thornbury.gpkg")) {
+if (!file.exists("data/pct_thornbury.geojson")) {
     message("You lack PCT data locally")
     rnet_wyca = pct::get_pct_rnet("west-yorkshire")
     rnet_wyca = rnet_wyca |>
@@ -103,13 +107,32 @@ if (!file.exists("data/pct_thornbury.gpkg")) {
     rnet_wyca_projected = sf::st_transform(rnet_wyca, 27700)
     pct_thornbury = rnet_wyca_projected[study_area_1km_projected, , op = sf::st_within]
     sf::st_write(pct_thornbury, "data/pct_thornbury.gpkg", delete_dsn = TRUE)
+    pct_thornbury = pct_thornbury |>
+      sf::st_transform(4326) |>
+      sf::write_sf("data/pct_thornbury.geojson")
 }
 ```
 
+The following commands will load the datar (available in the [data](data)) folder in the repo into R (the equivalent function in Python would be `geopandas.read_file`):
+
+```{r}
+#| echo: true
+net_x = sf::read_sf("data/open_roads_thornbury.geojson")
+net_y = sf::read_sf("data/pct_thornbury.geojson")
+```
+
+For the purposes of this demo we'll use projected data, although the functions should work with unprojected data too:
+
+```{r}
+#| echo: true
+net_x = sf::st_transform(net_x, "EPSG:27700")
+net_y = sf::st_transform(net_y, "EPSG:27700")
+```
+
+
+
 ```{r}
 #| label: load-data-thornbury
-net_x = sf::read_sf("data/open_roads_thornbury.gpkg")
-net_y = sf::read_sf("data/pct_thornbury.gpkg")
 # net_combined = bind_rows(
 #     net_x |> transmute(source = "OpenRoads"),
 #     net_y |> transmute(source = "PCT")
