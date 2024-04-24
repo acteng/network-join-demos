@@ -40,6 +40,7 @@ Datasets were take from a few case study areas.
 
 ```{r}
 #| include: false
+remotes::install_dev("stplanr")
 library(tidyverse)
 library(patchwork)
 ```
@@ -281,6 +282,9 @@ total_flow_rnet_join_2 = sum(rnet_joined_2$flow * sf::st_length(rnet_joined_2)) 
 ```
 
 The total flow on the networks are `r round(total_flow_rnet_join_1 / total_flow_y * 100)` % and `r round(total_flow_rnet_join_2 / total_flow_y * 100)` % of the total flow in the original network, respectively.
+This shows the importance of the `segment_length` parameter in the `rnet_join()` function, which splits the 'y' network segments with attributes into segments.
+
+An alternative approach, not yet implemented, would be to split y not at regular intervals but at intersections with x, which would be more accurate but more computationally intensive.
 
 <!-- The results are shown below: -->
 
@@ -335,8 +339,7 @@ net_y = sf::read_sf("data/open_roads_thornbury.gpkg") |>
 net_x = sf::read_sf("data/pct_thornbury.gpkg") |>
   transmute(id = 1:n())
 net_x = stplanr::rnet_subset(net_x, net_y, dist = 20)
-net_y_split = stplanr::line_segment(net_y, segment_length = 10, use_rsgeo = FALSE)
-rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0, dist = 15)
+rnet_joined = stplanr::rnet_join(net_x, net_y, segment_length = 10, dist = 15)
 rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
@@ -345,13 +348,68 @@ rnet_joined_values = rnet_joined |>
     road_function = most_common_value(road_function)
     )
 rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
-# rnet_joined_x |>
-#   ggplot() +
-#   geom_sf(aes(fill = categories), colour = NA) +
-#   theme_void()
 rnet_joined_x |>
-  select(road_function) |>
   ggplot() +
   geom_sf(aes(colour = road_function)) +
   theme_void()
+```
+
+
+```{r}
+#| eval: false
+# See https://github.com/JosiahParry/rsgeo/issues/42
+# Try stplanr::line_sement on every line to find error:
+for (i in 1:nrow(net_y)) {
+  tryCatch({
+    stplanr::line_segment(net_y[i, ], segment_length = 10, use_rsgeo = TRUE)
+  }, error = function(e) {
+    print(i)
+    print(e)
+  })
+}
+# 350 fails:
+sf = net_y[350, ]
+sf$geom
+mapview::mapview(sf)
+stplanr::line_segment(sf, segment_length = 10, use_rsgeo = TRUE)
+sfc = sf::st_geometry(sf)
+sf::st_crs(sfc) = NA
+dput(sfc)
+
+remotes::install_dev("rsgeo")
+
+sfc_integer = sf::st_linestring(
+    cbind(
+        c(418938.4, 418949.7, 418961),
+        c(434303.2, 434280.1, 434257)
+    )
+) |>
+  sf::st_sfc()
+sfc_no_integer = sf::st_linestring(
+    cbind(
+        c(418938.4, 418949.7, 418961.1),
+        c(434303.2, 434280.1, 434257)
+    )
+) |>
+  sf::st_sfc()
+
+rsgeo::line_segmentize(rsgeo::as_rsgeo(sfc_integer), n = 6) |>
+  sf::st_as_sfc() |>
+  sf::st_cast("LINESTRING") |>
+  length()
+
+rsgeo::line_segmentize(rsgeo::as_rsgeo(sfc_no_integer), n = 6) |>
+  sf::st_as_sfc() |>
+  sf::st_cast("LINESTRING") |>
+  length()
+
+sf::st_crs(sfc_integer) = "EPSG:27700"
+sf::st_crs(sfc_no_integer) = "EPSG:27700"
+stplanr::line_segment(sfc_integer, segment_length = 10, use_rsgeo = TRUE)
+stplanr::line_segment(sfc_no_integer, segment_length = 10, use_rsgeo = TRUE)
+
+sfc_integer_wgs84 = sf::st_transform(sfc_integer, 4326)
+
+res = lwgeom::st_geod_segmentize(sfc_integer_wgs84, max_seg_length = units::set_units(10, "m")) 
+waldo::compare(res, sfc_integer_wgs84)
 ```

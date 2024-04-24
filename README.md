@@ -116,7 +116,13 @@ time using the lengths of `x` and `y` to ensure more important values
 are given more weight, and see if the results are more accurate.
 
 The total flow on the networks are 8 % and 97 % of the total flow in the
-original network, respectively.
+original network, respectively. This shows the importance of the
+`segment_length` parameter in the `rnet_join()` function, which splits
+the ‘y’ network segments with attributes into segments.
+
+An alternative approach, not yet implemented, would be to split y not at
+regular intervals but at intersections with x, which would be more
+accurate but more computationally intensive.
 
 <!-- The results are shown below: -->
 
@@ -137,8 +143,7 @@ net_y = sf::read_sf("data/open_roads_thornbury.gpkg") |>
 net_x = sf::read_sf("data/pct_thornbury.gpkg") |>
   transmute(id = 1:n())
 net_x = stplanr::rnet_subset(net_x, net_y, dist = 20)
-net_y_split = stplanr::line_segment(net_y, segment_length = 10, use_rsgeo = FALSE)
-rnet_joined = stplanr::rnet_join(net_x, net_y_split, segment_length = 0, dist = 15)
+rnet_joined = stplanr::rnet_join(net_x, net_y, segment_length = 10, dist = 15)
 rnet_joined_values = rnet_joined |>
   sf::st_drop_geometry() |>
   group_by(id) |>
@@ -147,12 +152,7 @@ rnet_joined_values = rnet_joined |>
     road_function = most_common_value(road_function)
     )
 rnet_joined_x = left_join(net_x, rnet_joined_values, by = "id")
-# rnet_joined_x |>
-#   ggplot() +
-#   geom_sf(aes(fill = categories), colour = NA) +
-#   theme_void()
 rnet_joined_x |>
-  select(road_function) |>
   ggplot() +
   geom_sf(aes(colour = road_function)) +
   theme_void()
